@@ -23,14 +23,14 @@ $ uv run pytest
 
 ## Running relay
 
-Run relay with default options:
-
-```
-$ uv run lsl-pn
-```
-
 To print help and additional options:
 
 ```
 $ uv run lsl-pn --help
+```
+
+Run relay with default options (ctrl-c to quit):
+
+```
+$ uv run lsl-pn
 ```
