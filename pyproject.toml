@@ -1,0 +1,29 @@
+[project]
+name = "pylsl-pn"
+version = "0.1.0"
+description = "Stream Perception Neuron BVH streams to LSL"
+readme = "README.md"
+authors = [
+    { name = "Jamie Forth", email = "j.forth@gold.ac.uk" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pylsl>=1.18.1",
+    "uvloop>=0.22.1 ; sys_platform != 'win32'",
+]
+
+[project.scripts]
+lsl-pn = "pylsl_pn.relay:main"
+
+[build-system]
+requires = ["uv_build>=0.11.3,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "memray>=1.19.3",
+    "mypy>=1.20.1",
+    "pytest>=9.0.3",
+    "python-lsp-server>=1.14.0",
+    "ruff>=0.15.10",
+]
