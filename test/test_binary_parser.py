@@ -1,0 +1,71 @@
+import os
+
+from pylsl_pn import parser
+import numpy as np
+
+
+def test_verify_header():
+    header = bytearray(64)
+    # Set start token.
+    header[:2] = 0xffdd.to_bytes(2, "big")
+    # Set end token.
+    header[-2:] = 0xffee.to_bytes(2, "big")
+    assert parser.verify_header(header)
+
+
+def test_parse_header():
+    with open("test/data/sample-data-1-packet.dat", mode="rb") as file:
+        # Read header.
+        data = file.read(64)
+        header = parser.parse_header(data)
+        assert header["protocol"] == 16842752
+        assert header["count"] == 354
+        assert header["with_disp"] == 1
+        assert header["with_ref"] == 0
+        assert header["avatar_index"] == 0
+        assert header["avatar_name"] == "RED"
+        assert header["frame_index"] == 54
+        assert header["data_type"] == 1
+
+
+def test_parse_data():
+    with open("test/data/sample-data-1-stream.dat", mode="rb") as file:
+        # Read first header.
+        data = file.read(64)
+        count = parser.parse_header(data)["count"]
+
+        # Re-read as entire datagram.
+        file.seek(-64, os.SEEK_CUR)
+        data = file.read(64 + count * 4)
+        header, motion = parser.parse_data(data)
+        assert header["protocol"] == 16842752
+        assert header["count"] == 354
+        assert header["with_disp"] == 1
+        assert header["with_ref"] == 0
+        assert header["avatar_index"] == 0
+        assert header["avatar_name"] == "RED"
+        assert header["frame_index"] == 54
+        assert header["data_type"] == 1
+
+        np.testing.assert_equal(motion[0], -55.208133697509766)
+        np.testing.assert_equal(motion[-1], -20)
+
+        # Read second header.
+        data = file.read(64)
+        count = parser.parse_header(data)["count"]
+
+        # Re-read as entire datagram.
+        file.seek(-64, os.SEEK_CUR)
+        data = file.read(64 + count * 4)
+        header, motion = parser.parse_data(data)
+        assert header["protocol"] == 16842752
+        assert header["count"] == 354
+        assert header["with_disp"] == 1
+        assert header["with_ref"] == 0
+        assert header["avatar_index"] == 0
+        assert header["avatar_name"] == "RED"
+        assert header["frame_index"] == 55
+        assert header["data_type"] == 1
+
+        np.testing.assert_equal(motion[0], -55.21929168701172)
+        np.testing.assert_equal(motion[-1], -20)
