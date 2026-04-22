@@ -22,7 +22,7 @@ class DatagramReader(asyncio.DatagramProtocol):
         self.transport = transport
 
         logger.debug(
-            "Socket buffer size: %d",
+            "Socket buffer size: %d bytes",
             transport.get_extra_info("socket").getsockopt(
                 socket.SOL_SOCKET, socket.SO_RCVBUF
             ),
@@ -171,15 +171,18 @@ def main():
     log_level = logging.INFO
     if args.verbose:
         log_level = logging.DEBUG
-
     logging.basicConfig(level=log_level)
 
+    loop_factory = None
     if sys.platform != "win32":
-        import uvloop
+        try:
+            import uvloop
 
-        uvloop.install()
+            loop_factory = uvloop.new_event_loop
+        except ImportError:
+            pass
 
-    with asyncio.Runner() as runner:
+    with asyncio.Runner(loop_factory=loop_factory) as runner:
         # Block until runner returns.
         runner.run(
             main_task(
