@@ -136,12 +136,23 @@ async def udp_lsl_relay(local_addr, content_type, nominal_srate):
         logger.info("\nRelay stopped.")
 
 
-async def main_task(local_addr, content_type, nominal_srate):
+def setup_signals(stop_event: asyncio.Event):
     loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
 
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
+    if sys.platform != "win32":
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, stop_event.set)
+    else:
+        # Windows fallback.
+        signal.signal(
+            signal.SIGINT,
+            lambda sig, frame: loop.call_soon_threadsafe(stop_event.set),
+        )
+
+
+async def main_task(local_addr, content_type, nominal_srate):
+    stop_event = asyncio.Event()
+    setup_signals(stop_event)
 
     async with udp_lsl_relay(local_addr, content_type, nominal_srate):
         print("Relay is active. Press Ctrl-c to stop.")
