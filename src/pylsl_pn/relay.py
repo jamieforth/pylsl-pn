@@ -58,6 +58,8 @@ class LSLWriter():
         if avatar_index in self.outlets:
             return self.outlets[avatar_index]
 
+        logger.debug(header)
+
         async with self._lock:
             # Double-check pattern to avoid race conditions.
             if avatar_index not in self.outlets:
@@ -99,7 +101,6 @@ class LSLWriter():
                     return
 
                 header, sample = parse_data(data)
-                # logger.debug(header)
 
                 outlet = await self.get_outlet(header)
 
