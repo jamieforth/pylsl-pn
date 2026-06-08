@@ -5,7 +5,7 @@ import numpy as np
 header_token_format = ">H"
 header_start_token = 0xffdd
 header_end_token = 0xffee
-header_format = "<IHHHH32sII8s"
+header_format = "<IH??HH32sII8s"
 
 
 def verify_header(data):
@@ -27,11 +27,12 @@ def parse_header(data):
         "count": header[1],
         "with_disp": header[2],
         "with_ref": header[3],
-        "avatar_index": header[4],
-        "avatar_name": header[5].split(b"\x00")[0].decode("utf-8"),
-        "frame_index": header[6],
-        "data_type": header[7],  # Rotation order?
-        # Reserved block: header[9],
+        # Reserved block?: header[4],
+        "avatar_index": header[5],
+        "avatar_name": header[6].split(b"\x00")[0].decode("utf-8"),
+        "frame_index": header[7],
+        "data_type": header[8],  # Rotation order?
+        # Reserved block?: header[9],
     }
     return header_fields
 
