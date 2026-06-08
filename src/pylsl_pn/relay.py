@@ -166,13 +166,13 @@ def main():
         data.""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--ip", default="127.0.0.1", help="PN host IP address.")
-    parser.add_argument("--port", type=int, default=7005, help="PN host port.")
+    parser.add_argument("--ip", default="0.0.0.0", help="PN host IP address.")
+    parser.add_argument("--port", type=int, default=7002, help="PN host port.")
     parser.add_argument("--content_type", default="misc", help="Stream content type.")
     parser.add_argument(
         "--nominal_srate",
         type=int,
-        default=IRREGULAR_RATE,
+        default=125,
         help="Stream nominal sample rate.",
     )
     parser.add_argument(
