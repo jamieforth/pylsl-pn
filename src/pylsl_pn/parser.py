@@ -38,10 +38,9 @@ def parse_header(data):
 
 
 def parse_motion(data, count):
-    #return struct.unpack_from(f"<{count}f", data, 64)
     return np.frombuffer(data, np.float32, count, 64)
 
-def parse_data(data, buffer=None):
+def parse_data(data):
     header = parse_header(data)
     motion = parse_motion(data, header["count"])
     return header, motion
