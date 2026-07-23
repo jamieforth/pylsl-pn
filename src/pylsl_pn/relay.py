@@ -6,7 +6,7 @@ import socket
 import sys
 from contextlib import asynccontextmanager
 
-from pylsl import IRREGULAR_RATE, StreamInfo, StreamOutlet, local_clock  # type: ignore
+from pylsl import StreamInfo, StreamOutlet, local_clock  # type: ignore
 
 from .parser import parse_data, valid_packet
 
