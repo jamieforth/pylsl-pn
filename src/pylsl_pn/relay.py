@@ -44,10 +44,10 @@ class DatagramReader(asyncio.DatagramProtocol):
 
 
 class LSLWriter():
-    def __init__(self, queue, content_type, nominal_srate):
-        self.queue = queue
+    def __init__(self, content_type, nominal_srate, max_queue_size):
         self.content_type = content_type
         self.nominal_srate = nominal_srate
+        self.queue = asyncio.Queue(maxsize=max_queue_size)
 
         self.outlets = {}
         self._lock = asyncio.Lock()
@@ -60,18 +60,16 @@ class LSLWriter():
 
         logger.debug(header)
 
-        async with self._lock:
-            # Double-check pattern to avoid race conditions.
-            if avatar_index not in self.outlets:
-                # Offload blocking creation to a thread.
-                outlet = await asyncio.to_thread(
-                    self._create_lsl_stream,
-                    header["avatar_name"],
-                    header["count"],
-                )
-                self.outlets[avatar_index] = outlet
+        # Offload blocking creation to a thread to keep the event loop free to
+        # handle incoming UDP packets.
+        outlet = await asyncio.to_thread(
+            self._create_lsl_stream,
+            header["avatar_name"],
+            header["count"],
+        )
+        self.outlets[avatar_index] = outlet
 
-            return self.outlets[avatar_index]
+        return self.outlets[avatar_index]
 
     def _create_lsl_stream(self, avatar_name, channel_count):
         logger.info(f"Creating LSL outlet: {avatar_name} ({channel_count} channels)")
@@ -90,6 +88,7 @@ class LSLWriter():
             while True:
                 item = await self.queue.get()
                 if item is None:
+                    # Sentinel signal to terminate.
                     self.queue.task_done()
                     break
 
@@ -98,16 +97,14 @@ class LSLWriter():
 
                 if not valid_packet(data):
                     logger.debug(f"Invalid packet length: {len(data)}")
-                    return
+                    self.queue.task_done() # Keep the queue count accurate.
+                    continue               # Process next packet.
 
                 header, sample = parse_data(data)
 
                 outlet = await self.get_outlet(header)
 
-                # Offload the LSL call to a thread to keep the event loop free to
-                # handle incoming UDP packets.
-                await asyncio.to_thread(outlet.push_chunk, sample, time_stamp)
-
+                outlet.push_chunk(sample, time_stamp)
                 self.queue.task_done()
         finally:
             # Cleanup outlets.
@@ -115,15 +112,18 @@ class LSLWriter():
 
 
 @asynccontextmanager
-async def udp_lsl_relay(local_addr, content_type, nominal_srate):
+async def udp_lsl_relay(
+    local_addr, lsl_writer: LSLWriter, task_group: asyncio.TaskGroup
+):
     loop = asyncio.get_running_loop()
-    queue = asyncio.Queue(maxsize=2048)
-    lsl_writer = LSLWriter(queue, content_type, nominal_srate)
-    worker_task = asyncio.create_task(lsl_writer.lsl_worker())
+
+    worker_task = task_group.create_task(lsl_writer.lsl_worker())
+
     transport, protocol = await loop.create_datagram_endpoint(
-        lambda: DatagramReader(queue),
+        lambda: DatagramReader(lsl_writer.queue),
         local_addr=local_addr,
     )
+
     try:
         yield protocol
     finally:
@@ -131,9 +131,12 @@ async def udp_lsl_relay(local_addr, content_type, nominal_srate):
         transport.close()
 
         # Stop LSL writer.
-        queue.put_nowait(None)
-        await worker_task
-
+        lsl_writer.queue.put_nowait(None)
+        if not worker_task.done():
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
         logger.info("\nRelay stopped.")
 
 
@@ -151,11 +154,13 @@ def setup_signals(stop_event: asyncio.Event):
         )
 
 
-async def main_task(local_addr, content_type, nominal_srate):
+async def main_task(local_addr, content_type, nominal_srate, max_queue_size):
     stop_event = asyncio.Event()
     setup_signals(stop_event)
 
-    async with udp_lsl_relay(local_addr, content_type, nominal_srate):
+    lsl_writer = LSLWriter(content_type, nominal_srate, max_queue_size)
+
+    async with asyncio.TaskGroup() as tg, udp_lsl_relay(local_addr, lsl_writer, tg):
         print("Relay is active. Press Ctrl-c to stop.")
         await stop_event.wait()
 
@@ -168,12 +173,18 @@ def main():
     )
     parser.add_argument("--ip", default="0.0.0.0", help="PN host IP address.")
     parser.add_argument("--port", type=int, default=7002, help="PN host port.")
-    parser.add_argument("--content_type", default="misc", help="Stream content type.")
+    parser.add_argument("--content-type", default="mocap", help="Stream content type.")
     parser.add_argument(
-        "--nominal_srate",
+        "--nominal-srate",
         type=int,
         default=125,
         help="Stream nominal sample rate.",
+    )
+    parser.add_argument(
+        "--udp-queue-max",
+        type=int,
+        default=2048,
+        help="Number of incoming UDP packets to buffer.",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Print extra debugging information."
@@ -201,5 +212,6 @@ def main():
                 (args.ip, args.port),
                 args.content_type,
                 args.nominal_srate,
+                args.udp_queue_max,
             )
         )
