@@ -31,7 +31,7 @@ def test_parse_header():
 
 
 def test_parse_data():
-    with open("test/data/sample-data-1-stream.dat", mode="rb") as file:
+    with open("test/data/sample-data-2-packets.dat", mode="rb") as file:
         # Read first header.
         data = file.read(64)
         count = parser.parse_header(data)["count"]
@@ -66,8 +66,8 @@ def test_parse_data():
         assert header["count"] == 354
         assert header["with_disp"] is True
         assert header["with_ref"] is False
-        assert header["avatar_index"] == 0
-        assert header["avatar_name"] == "RED"
+        assert header["avatar_index"] == 1
+        assert header["avatar_name"] == "BLUE"
         assert header["frame_index"] == 55
         assert header["reserved_0"] == 1
         assert header["reserved_1"] == 0
